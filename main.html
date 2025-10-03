@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Registro de Horas — Tema Escuro</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%232563eb'/><text x='50' y='58' font-size='44' text-anchor='middle' fill='white' font-family='Arial'>⌚</text></svg>">
+<!-- Adicionando jsPDF para geração de PDFs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+<style>
+  /* Reset minimal */
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: Inter, "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+    background: radial-gradient(1200px 600px at 10% 10%, #071025 0%, transparent 18%),
+                radial-gradient(900px 500px at 90% 90%, #0b1530 0%, transparent 15%),
+                #030617;
+    color:#cfe6ff;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    padding:28px;
+  }
+
+  .wrap{
+    max-width:1100px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns: 420px 1fr;
+    gap:22px;
+    align-items:start;
+  }
+
+  header.appbar{
+    grid-column:1 / -1;
+    display:flex;
+    gap:16px;
+    align-items:center;
+    padding:16px 18px;
+    border-radius:12px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03);
+    box-shadow: 0 6px 30px rgba(2,6,23,0.6);
+  }
+  header .title{
+    font-size:20px;
+    font-weight:700;
+    letter-spacing:0.2px;
+  }
+  header .subtitle{
+    color:#98bfe8;
+    font-size:13px;
+    margin-left:6px;
+    font-weight:500;
+  }
+  .brand-icon{
+    width:48px;height:48px;border-radius:10px;flex:0 0 48px;
+    background:linear-gradient(135deg,#2563eb,#7c3aed);
+    display:grid;place-items:center;color:white;font-weight:700;font-size:20px;
+    box-shadow:0 6px 18px rgba(37,99,235,0.12), inset 0 -6px 18px rgba(255,255,255,0.04);
+  }
+
+  /* Left column - form */
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px;
+    padding:18px;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  h2{margin:0 0 8px;font-size:16px}
+  p.lead{margin:0 0 16px;color:#9fbfe8;font-size:13px}
+
+  label{display:block;font-size:13px;color:#cfe6ff;margin-bottom:6px;font-weight:600}
+  input[type="date"], input[type="time"], select, input[type="number"], textarea{
+    width:100%;
+    background:rgba(255,255,255,0.02);
+    border:1px solid rgba(255,255,255,0.04);
+    color:#e7f6ff;padding:10px;border-radius:8px;font-size:14px;
+  }
+  .time-row{display:flex;gap:8px}
+  .time-row > div{flex:1}
+
+  .row-gap{margin-top:12px}
+
+  .muted{color:#8eaedd;font-size:13px}
+
+  .controls{
+    display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;
+  }
+  .btn{
+    display:inline-flex;gap:8px;align-items:center;justify-content:center;
+    padding:10px 12px;border-radius:10px;border:0;font-weight:700;cursor:pointer;font-size:14px;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(90deg,#2563eb,#7c3aed);color:white;box-shadow:0 8px 30px rgba(37,99,235,0.12)}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:#cfe6ff}
+  .btn.warn{background:linear-gradient(90deg,#f59e0b,#f97316);color:#0b0b0b}
+  .btn.danger{background:linear-gradient(90deg,#ef4444,#dc2626);color:white}
+
+  .settings{
+    display:flex;flex-direction:column;gap:8px;margin-top:10px;
+    padding:10px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+    border:1px dashed rgba(255,255,255,0.02);
+  }
+  .settings .inline{display:flex;gap:8px;align-items:center}
+  .small{font-size:13px;padding:6px 8px;border-radius:8px}
+
+  /* Right column - records */
+  .table-wrap{
+    overflow:auto;
+    min-height:220px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.03);
+  }
+
+  table{
+    width:100%;border-collapse:collapse;font-size:13px;
+  }
+  thead th{
+    text-align:left;padding:10px 12px;color:#cfe6ff;font-weight:700;
+    border-bottom:1px solid rgba(255,255,255,0.03);
+  }
+  tbody td{padding:10px 12px;border-bottom:1px dashed rgba(255,255,255,0.02);color:#d6eaff}
+  tbody tr{cursor:pointer}
+  tbody tr:hover td{background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))}
+  tbody tr.editing td{background:linear-gradient(90deg, rgba(37,99,235,0.1), rgba(37,99,235,0.05))}
+  .cell-right{text-align:right}
+  .chip{display:inline-block;padding:6px 8px;border-radius:999px;background:rgba(255,255,255,0.02);font-weight:700;color:#9fc6ff;font-size:13px}
+
+  .totals{
+    margin-top:12px;display:grid;grid-template-columns: repeat(2,1fr);gap:10px;
+  }
+  .stat{
+    padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    border:1px solid rgba(255,255,255,0.02);
+  }
+  .stat h4{margin:0;color:#bfe0ff;font-size:13px}
+  .stat p{margin:6px 0 0;font-size:15px;font-weight:800;color:#fff}
+
+  .footer-note{margin-top:12px;color:#88aee6;font-size:12px}
+
+  /* JSON area */
+  .json-area{width:100%;min-height:120px;padding:10px;border-radius:8px;background:rgba(0,0,0,0.22);border:1px solid rgba(255,255,255,0.02);color:#cfe6ff;font-family:monospace;font-size:13px}
+
+  /* File input styling */
+  .file-input-wrapper {
+    position: relative;
+    display: inline-block;
+  }
+  .file-input-wrapper input[type="file"] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+
+  /* Edição de registros */
+  .edit-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(37,99,235,0.05), rgba(37,99,235,0.02));
+    border: 1px dashed rgba(37,99,235,0.2);
+  }
+
+  /* responsive */
+  @media (max-width:980px){
+    .wrap{grid-template-columns:1fr; padding-bottom:30px}
+    header.appbar{flex-direction:column;align-items:flex-start;gap:6px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="appbar">
+      <div class="brand-icon">HR</div>
+      <div>
+        <div class="title">Registro de Horas Trabalhadas</div>
+        <div class="subtitle">Diária padrão R$100 • Hora extra R$12,50 • Sábado = 4h + R$50</div>
+      </div>
+      <div style="margin-left:auto" class="muted">salvamento local (localStorage) • export PDF/JSON</div>
+    </header>
+
+    <!-- LEFT: FORM -->
+    <section class="card" aria-labelledby="form-title">
+      <h2 id="form-title">Adicionar registro</h2>
+      <p class="lead">Informe a data e até dois períodos (entrada/saída). Se exceder a jornada, calcula horas extras automaticamente.</p>
+
+      <form id="workForm" autocomplete="off">
+        <div class="row-gap">
+          <label for="workDate">Data</label>
+          <input id="workDate" type="date" required>
+        </div>
+
+        <div class="row-gap">
+          <label>Período 1</label>
+          <div class="time-row">
+            <div><input id="startTime1" type="time" required aria-label="Entrada 1"></div>
+            <div><input id="endTime1" type="time" required aria-label="Saída 1"></div>
+          </div>
+        </div>
+
+        <div class="row-gap">
+          <label>Período 2 (opcional)</label>
+          <div class="time-row">
+            <div><input id="startTime2" type="time" aria-label="Entrada 2"></div>
+            <div><input id="endTime2" type="time" aria-label="Saída 2"></div>
+          </div>
+        </div>
+
+        <div class="settings">
+          <div class="inline">
+            <label style="flex:1">Horas normais (dias úteis)</label>
+            <input id="stdHours" type="number" min="1" step="0.5" value="8" style="width:90px">
+          </div>
+          <div class="inline">
+            <label style="flex:1">Valor diária (R$)</label>
+            <input id="dailyRate" type="number" min="0" step="0.01" value="100" style="width:110px">
+          </div>
+          <div class="inline">
+            <label style="flex:1">Valor hora extra (R$)</label>
+            <input id="extraRate" type="number" min="0" step="0.01" value="12.5" style="width:110px">
+          </div>
+
+          <!-- NOVO: campo de Observações / caneta -->
+          <div class="row-gap" style="margin-top:8px">
+            <label for="notes">Observações / "Caneta" <small style="font-weight:600;color:#9fbfe8">ex: participação nos lucros = 500</small></label>
+            <textarea id="notes" rows="3" placeholder="Insira observações para aparecer no PDF (ex: participação nos lucros = 500)"></textarea>
+          </div>
+
+          <div class="inline muted" style="font-size:13px">Sábado: jornada padrão 4h, diária fixa R$50 (os extras calculados com mesmo valor/hora extra).</div>
+        </div>
+
+        <div class="controls">
+          <button class="btn primary" type="submit" id="submitBtn">➕ Adicionar</button>
+          <button id="clearAll" type="button" class="btn danger">🧹 Limpar todos</button>
+        </div>
+
+        <div id="editControls" class="edit-controls" style="display:none">
+          <div class="muted" style="flex:1">Editando registro selecionado</div>
+          <button id="updateBtn" type="button" class="btn primary small">💾 Atualizar</button>
+          <button id="cancelEditBtn" type="button" class="btn ghost small">❌ Cancelar</button>
+        </div>
+
+        <div class="footer-note">Se a saída for anterior à entrada, o sistema assume que o turno passou da meia-noite.</div>
+        <div class="footer-note">Dê duplo clique em um registro na tabela para editá-lo.</div>
+      </form>
+    </section>
+
+    <!-- RIGHT: TABLE + STATS -->
+    <section>
+      <div class="table-wrap card">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <h2 style="margin:0">Registros</h2>
+          <div class="chip" id="countChip">0 registros</div>
+        </div>
+
+        <table id="recordsTable" aria-live="polite">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Entrada 1</th>
+              <th>Saída 1</th>
+              <th>Entrada 2</th>
+              <th>Saída 2</th>
+              <th class="cell-right">Horas</th>
+              <th class="cell-right">Extras</th>
+              <th class="cell-right">R$ / dia</th>
+              <th class="cell-right">Ação</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="totals" style="margin-top:14px">
+          <div class="stat">
+            <h4>Total de dias</h4>
+            <p id="totalDays">0</p>
+          </div>
+          <div class="stat">
+            <h4>Total horas extras</h4>
+            <p id="totalExtra">0.00 h</p>
+          </div>
+          <div class="stat">
+            <h4>Valor diárias</h4>
+            <p id="totalDaily">R$ 0.00</p>
+          </div>
+          <div class="stat">
+            <h4>Valor horas extras</h4>
+            <p id="totalExtraVal">R$ 0.00</p>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+          <div class="muted">Total a receber</div>
+          <div style="font-weight:900;font-size:18px;color:#d6f6ff" id="grandTotal">R$ 0.00</div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="muted">Exportar / Importar Dados</div>
+          <textarea id="jsonArea" class="json-area" placeholder='JSON aparecerá aqui (export/import)'></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="generatePdf" class="btn primary">📄 Gerar PDF</button>
+            <button id="downloadJson" class="btn ghost">⬇ Baixar JSON</button>
+            <div class="file-input-wrapper">
+              <button id="uploadJson" class="btn ghost">📁 Carregar JSON</button>
+              <input type="file" id="fileInput" accept=".json">
+            </div>
+            <button id="copyJson" class="btn ghost">📋 Copiar JSON</button>
+            <div style="flex:1"></div>
+            <button id="clearStorage" class="btn warn">🧾 Limpar storage</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+<script>
+/* globals jspdf, doc */
+const { jsPDF } = window.jspdf;
+
+/*
+  Registro de Horas - JS
+  - Mantém registros em localStorage
+  - Calcula horas totais, horas extras e valores
+  - Regras:
+    * Diária padrão (configurável) ex: 100
+    * Hora extra padrão (configurável) ex: 12.5
+    * Sábado: jornada 4h e diária fixa R$50 (extras calculados normalmente)
+*/
+
+const form = document.getElementById('workForm');
+const tbody = document.querySelector('#recordsTable tbody');
+const totalDaysEl = document.getElementById('totalDays');
+const totalExtraEl = document.getElementById('totalExtra');
+const totalDailyEl = document.getElementById('totalDaily');
+const totalExtraValEl = document.getElementById('totalExtraVal');
+const grandTotalEl = document.getElementById('grandTotal');
+const countChip = document.getElementById('countChip');
+
+const stdHoursInput = document.getElementById('stdHours');
+const dailyRateInput = document.getElementById('dailyRate');
+const extraRateInput = document.getElementById('extraRate');
+
+const jsonArea = document.getElementById('jsonArea');
+const submitBtn = document.getElementById('submitBtn');
+const editControls = document.getElementById('editControls');
+const updateBtn = document.getElementById('updateBtn');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+
+const generatePdfBtn = document.getElementById('generatePdf');
+const downloadJsonBtn = document.getElementById('downloadJson');
+const uploadJsonBtn = document.getElementById('uploadJson');
+const fileInput = document.getElementById('fileInput');
+const copyJsonBtn = document.getElementById('copyJson');
+const clearAllBtn = document.getElementById('clearAll');
+const clearStorageBtn = document.getElementById('clearStorage');
+
+let records = [];
+let editingIndex = -1; // Índice do registro sendo editado (-1 significa que não está em modo de edição)
+
+// Helpers
+const money = v => 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtH = v => Number(v).toFixed(2);
+
+// parse time "HH:MM" to minutes
+function parseTimeToMin(t){
+  if(!t) return null;
+  const [hh,mm] = t.split(':').map(s=>parseInt(s,10));
+  if(Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  return hh*60 + mm;
+}
+
+// minutes to hours float
+function minToHours(min){
+  return min/60;
+}
+
+// check if date is Saturday (6)
+function isSaturday(dateStr){
+  if(!dateStr) return false;
+  const d = new Date(dateStr + 'T12:00:00'); // safe midday to avoid tz issues
+  return d.getDay() === 6;
+}
+
+// compute a single record result
+function computeRecord(rec){
+  // rec: {date, start1,end1,start2,end2}
+  let totalMin = 0;
+  const p1s = parseTimeToMin(rec.start1);
+  const p1e = parseTimeToMin(rec.end1);
+  if(p1s!=null && p1e!=null){
+    let diff = p1e - p1s;
+    if(diff < 0) diff += 24*60; // passou da meia-noite
+    totalMin += diff;
+  }
+  const p2s = parseTimeToMin(rec.start2);
+  const p2e = parseTimeToMin(rec.end2);
+  if(p2s!=null && p2e!=null){
+    let diff2 = p2e - p2s;
+    if(diff2 < 0) diff2 += 24*60;
+    totalMin += diff2;
+  }
+  const totalHours = +(minToHours(totalMin)).toFixed(2); // arredonda p/ 2 casas
+  const saturday = isSaturday(rec.date);
+  const stdHours = saturday ? 4 : Number(stdHoursInput.value || 8);
+  const dailyRate = saturday ? 50 : Number(dailyRateInput.value || 100);
+  const extraRate = Number(extraRateInput.value || 12.5);
+
+  const extraHours = Math.max(0, +(totalHours - stdHours).toFixed(2));
+  const extraPay = +(extraHours * extraRate).toFixed(2);
+  const pay = totalMin > 0 ? +(dailyRate + extraPay).toFixed(2) : 0;
+  return { totalHours, extraHours, pay, dailyRateUsed: dailyRate, isSaturday: saturday };
+}
+
+// render table
+function render(){
+  tbody.innerHTML = '';
+  records.forEach((r, idx) => {
+    const c = computeRecord(r);
+    const tr = document.createElement('tr');
+    // format date dd/mm/yyyy
+    const dateParts = r.date ? r.date.split('-') : ['','',''];
+    const formatted = r.date ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : '';
+    tr.innerHTML = `
+      <td>${formatted}${c.isSaturday ? ' <small style="color:#9fc6ff">• Sáb</small>' : ''}</td>
+      <td>${r.start1 || '-'}</td>
+      <td>${r.end1 || '-'}</td>
+      <td>${r.start2 || '-'}</td>
+      <td>${r.end2 || '-'}</td>
+      <td class="cell-right">${fmtH(c.totalHours)} h</td>
+      <td class="cell-right">${fmtH(c.extraHours)} h</td>
+      <td class="cell-right">${money(c.pay)}</td>
+      <td class="cell-right"><button data-index="${idx}" class="btn ghost small del">Excluir</button></td>
+    `;
+    
+    // Destacar linha em edição
+    if (idx === editingIndex) {
+      tr.classList.add('editing');
+    }
+    
+    tbody.appendChild(tr);
+  });
+
+  // attach delete events
+  document.querySelectorAll('.del').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation(); // Impedir que o clique no botão dispare o evento de duplo clique
+      const i = Number(btn.getAttribute('data-index'));
+      if(confirm('Excluir este registro?')) {
+        // Se estivermos editando este registro, cancelar a edição
+        if (i === editingIndex) {
+          cancelEdit();
+        }
+        records.splice(i,1);
+        saveAndRefresh();
+      }
+    });
+  });
+
+  // Adicionar evento de duplo clique para edição
+  tbody.querySelectorAll('tr').forEach((row, idx) => {
+    row.addEventListener('dblclick', () => {
+      editRecord(idx);
+    });
+  });
+
+  updateTotalsUI();
+}
+
+// Editar registro
+function editRecord(index) {
+  const record = records[index];
+  if (!record) return;
+  
+  // Preencher formulário com dados do registro
+  document.getElementById('workDate').value = record.date;
+  document.getElementById('startTime1').value = record.start1;
+  document.getElementById('endTime1').value = record.end1;
+  document.getElementById('startTime2').value = record.start2 || '';
+  document.getElementById('endTime2').value = record.end2 || '';
+  
+  // Atualizar estado de edição
+  editingIndex = index;
+  
+  // Mostrar controles de edição
+  editControls.style.display = 'flex';
+  submitBtn.style.display = 'none';
+  
+  // Rerender para destacar a linha em edição
+  render();
+}
+
+// Atualizar registro
+function updateRecord() {
+  if (editingIndex === -1) return;
+  
+  const date = document.getElementById('workDate').value;
+  const start1 = document.getElementById('startTime1').value;
+  const end1 = document.getElementById('endTime1').value;
+  const start2 = document.getElementById('startTime2').value;
+  const end2 = document.getElementById('endTime2').value;
+
+  // Validações básicas
+  if(!date){ alert('Escolha uma data.'); return; }
+  if(!start1 || !end1){ alert('Preencha o primeiro período.'); return; }
+  if((start2 && !end2) || (!start2 && end2)){ alert('Preencha ambos os campos do segundo período ou deixe em branco.'); return; }
+
+  // Atualizar registro
+  records[editingIndex] = { 
+    date, 
+    start1, 
+    end1, 
+    start2: start2 || '', 
+    end2: end2 || '' 
+  };
+  
+  // Finalizar edição
+  cancelEdit();
+  saveAndRefresh();
+}
+
+// Cancelar edição
+function cancelEdit() {
+  editingIndex = -1;
+  editControls.style.display = 'none';
+  submitBtn.style.display = 'inline-flex';
+  form.reset();
+  // Restaurar data padrão
+  document.getElementById('workDate').valueAsDate = new Date();
+  render();
+}
+
+// update totals
+function updateTotalsUI(){
+  const totalDays = records.filter(r=> {
+    // consider a 'worked day' any with at least start1 & end1 present and positive time
+    const m1 = parseTimeToMin(r.start1), m2 = parseTimeToMin(r.end1);
+    if(m1==null || m2==null) return false;
+    let diff = m2 - m1; if(diff < 0) diff += 24*60;
+    return diff > 0;
+  }).length;
+
+  let totalExtra = 0, totalDaily = 0, totalExtraVal = 0;
+  records.forEach(r=>{
+    const c = computeRecord(r);
+    if(c.pay > 0) {
+      totalDaily += c.dailyRateUsed;
+      totalExtra += c.extraHours;
+      totalExtraVal += +(c.extraHours * (Number(extraRateInput.value||12.5))).toFixed(2);
+    }
+  });
+
+  const grand = +(totalDaily + totalExtraVal).toFixed(2);
+
+  totalDaysEl.textContent = totalDays;
+  totalExtraEl.textContent = `${totalExtra.toFixed(2)} h`;
+  totalDailyEl.textContent = money(totalDaily);
+  totalExtraValEl.textContent = money(totalExtraVal);
+  grandTotalEl.textContent = money(grand);
+  countChip.textContent = `${records.length} registro${records.length!==1 ? 's' : ''}`;
+}
+
+// load/save
+function saveAndRefresh(){
+  localStorage.setItem('workRecordsDark', JSON.stringify(records));
+  jsonArea.value = JSON.stringify(records, null, 2);
+  render();
+}
+
+function loadFromStorage(){
+  const raw = localStorage.getItem('workRecordsDark');
+  if(raw){
+    try{
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed)) records = parsed;
+    }catch(e){}
+  }
+}
+loadFromStorage();
+render();
+
+
+// form submit
+form.addEventListener('submit', e=>{
+  e.preventDefault();
+  
+  // Se estiver em modo de edição, atualizar em vez de adicionar
+  if (editingIndex !== -1) {
+    updateRecord();
+    return;
+  }
+  
+  const date = document.getElementById('workDate').value;
+  const start1 = document.getElementById('startTime1').value;
+  const end1 = document.getElementById('endTime1').value;
+  const start2 = document.getElementById('startTime2').value;
+  const end2 = document.getElementById('endTime2').value;
+
+  // basic validations
+  if(!date){ alert('Escolha uma data.'); return; }
+  if(!start1 || !end1){ alert('Preencha o primeiro período.'); return; }
+
+  // validate second block
+  if((start2 && !end2) || (!start2 && end2)){ alert('Preencha ambos os campos do segundo período ou deixe em branco.'); return; }
+
+  // push record
+  records.push({ date, start1, end1, start2: start2 || '', end2: end2 || '' });
+  saveAndRefresh();
+  form.reset();
+  // set date to next day for convenience
+  const d = new Date(date + 'T12:00:00'); d.setDate(d.getDate() + 1); document.getElementById('workDate').valueAsDate = d;
+});
+
+// Event listeners para edição
+updateBtn.addEventListener('click', updateRecord);
+cancelEditBtn.addEventListener('click', cancelEdit);
+
+// Download JSON
+downloadJsonBtn.addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(records, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; 
+  a.download = 'registro_horas.json';
+  document.body.appendChild(a); 
+  a.click(); 
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+// Upload JSON
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const importedData = JSON.parse(event.target.result);
+      if (!Array.isArray(importedData)) {
+        alert('Formato inválido: esperado array de registros.');
+        return;
+      }
+      
+      // Validar estrutura dos registros
+      const isValid = importedData.every(record => 
+        record.date && record.start1 && record.end1
+      );
+      
+      if (!isValid && !confirm('Alguns registros podem estar incompletos. Deseja continuar importando?')) {
+        return;
+      }
+      
+      records = importedData;
+      saveAndRefresh();
+      alert('Dados importados com sucesso!');
+    } catch (error) {
+      alert('Erro ao ler arquivo: ' + error.message);
+    }
+  };
+  reader.readAsText(file);
+  // Resetar o input para permitir carregar o mesmo arquivo novamente
+  e.target.value = '';
+});
+
+// Copiar JSON para área de transferência
+copyJsonBtn.addEventListener('click', ()=> {
+  jsonArea.select();
+  try { 
+    document.execCommand('copy'); 
+    alert('JSON copiado para a área de transferência.'); 
+  } catch(e){ 
+    // Fallback para navegadores modernos
+    navigator.clipboard.writeText(jsonArea.value)
+      .then(() => alert('JSON copiado para a área de transferência.'))
+      .catch(() => alert('Falha ao copiar JSON.'));
+  }
+});
+
+// Generate PDF
+generatePdfBtn.addEventListener('click', () => {
+  if (records.length === 0) {
+    alert('Não há registros para gerar PDF.');
+    return;
+  }
+
+  // pegar observações (caneta) do formulário
+  const notes = (document.getElementById('notes') || { value: '' }).value || '';
+
+  // Calcular totais para o PDF
+  let totalDays = 0;
+  let totalHours = 0;
+  let totalExtraHours = 0;
+  let totalDailyValue = 0;
+  let totalExtraValue = 0;
+  
+  records.forEach(r => {
+    const c = computeRecord(r);
+    if (c.pay > 0) {
+      totalDays++;
+      totalHours += c.totalHours;
+      totalExtraHours += c.extraHours;
+      totalDailyValue += c.dailyRateUsed;
+      totalExtraValue += (c.extraHours * Number(extraRateInput.value || 12.5));
+    }
+  });
+  
+  const grandTotal = totalDailyValue + totalExtraValue;
+
+  // Criar PDF
+  const doc = new jsPDF();
+
+  // Cabeçalho
+  doc.setFontSize(20);
+  doc.setTextColor(37, 99, 235);
+  doc.text('REGISTRO DE HORAS TRABALHADAS', 105, 20, null, null, 'center');
+  
+  doc.setFontSize(12);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 105, 30, null, null, 'center');
+  
+  // Tabela de registros
+  const tableColumn = ["Data", "Entrada", "Saída", "Entrada", "Saída", "Horas", "Extras", "Valor (R$)"];
+  const tableRows = [];
+  
+  records.forEach(r => {
+    const c = computeRecord(r);
+    const dateParts = r.date.split('-');
+    const formattedDate = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+    
+    const rowData = [
+      formattedDate + (c.isSaturday ? ' (Sáb)' : ''),
+      r.start1 || '-',
+      r.end1 || '-',
+      r.start2 || '-',
+      r.end2 || '-',
+      c.totalHours.toFixed(2),
+      c.extraHours.toFixed(2),
+      c.pay.toFixed(2)
+    ];
+    tableRows.push(rowData);
+  });
+  
+  // Adicionar tabela com rodapé de assinaturas em cada página (didDrawPage)
+  doc.autoTable({
+    head: [tableColumn],
+    body: tableRows,
+    startY: 40,
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [37, 99, 235] },
+    alternateRowStyles: { fillColor: [240, 240, 240] },
+    didDrawPage: function (data) {
+      // Desenhar linhas de assinatura no rodapé de cada página
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const y = pageHeight - 30;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.line(20, y, 90, y);
+      doc.line(120, y, 190, y);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Assinatura do Funcionário', 55, y + 8, null, null, 'center');
+      doc.text('Assinatura do Responsável', 155, y + 8, null, null, 'center');
+    }
+  });
+  
+  // Resumo
+  const finalY = (doc.lastAutoTable && doc.lastAutoTable.finalY) ? doc.lastAutoTable.finalY + 12 : 60;
+  
+  doc.setFontSize(12);
+  doc.setTextColor(0, 0, 0);
+  doc.text('RESUMO', 20, finalY);
+  
+  doc.setFontSize(10);
+  doc.text(`Total de dias trabalhados: ${totalDays}`, 20, finalY + 10);
+  doc.text(`Total de horas: ${totalHours.toFixed(2)}h`, 20, finalY + 16);
+  doc.text(`Total de horas extras: ${totalExtraHours.toFixed(2)}h`, 20, finalY + 22);
+  doc.text(`Valor das diárias: R$ ${totalDailyValue.toFixed(2)}`, 20, finalY + 28);
+  doc.text(`Valor das horas extras: R$ ${totalExtraValue.toFixed(2)}`, 20, finalY + 34);
+  
+  doc.setFontSize(12);
+  doc.setTextColor(37, 99, 235);
+  doc.text(`TOTAL A RECEBER: R$ ${grandTotal.toFixed(2)}`, 20, finalY + 46);
+
+  // Observações (caneta)
+  doc.setFontSize(11);
+  doc.setTextColor(0,0,0);
+  doc.text('OBSERVAÇÕES:', 20, finalY + 62);
+  const notesText = notes.trim() || '-';
+  const splitted = doc.splitTextToSize(notesText, 170);
+  doc.setFontSize(10);
+  doc.text(splitted, 20, finalY + 70);
+
+  // Ao salvar, o plugin já adicionou rodapés em cada página via didDrawPage.
+  doc.save('registro_horas_trabalhadas.pdf');
+});
+
+
+// Clear all
+clearAllBtn.addEventListener('click', ()=>{
+  if(confirm('Remover todos os registros?')){
+    // Se estiver em modo de edição, cancelar primeiro
+    if (editingIndex !== -1) {
+      cancelEdit();
+    }
+    records = [];
+    saveAndRefresh();
+  }
+});
+clearStorageBtn.addEventListener('click', ()=>{
+  if(confirm('Limpar também localStorage? (irá apagar definitivamente)')){
+    // Se estiver em modo de edição, cancelar primeiro
+    if (editingIndex !== -1) {
+      cancelEdit();
+    }
+    localStorage.removeItem('workRecordsDark');
+    records = [];
+    saveAndRefresh();
+    alert('localStorage limpo.');
+  }
+});
+
+// update UI when config changes
+[stdHoursInput, dailyRateInput, extraRateInput].forEach(inp=>{
+  inp.addEventListener('input', ()=> saveAndRefresh());
+});
+
+// set date default to today
+document.getElementById('workDate').valueAsDate = new Date();
+</script>
+</body>
+</html>
